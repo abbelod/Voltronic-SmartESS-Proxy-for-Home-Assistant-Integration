@@ -70,7 +70,7 @@ LOCAL_PORT = 502         # match inverter TCP port
 Run the Python script:
 
 ```bash
-python inverter_proxy.py
+python <appropriate_script>.py
 ```
 
 * The proxy will first connect to the ESS cloud server.
