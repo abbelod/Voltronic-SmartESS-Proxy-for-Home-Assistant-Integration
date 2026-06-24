@@ -4,6 +4,10 @@ import time
 import json
 import paho.mqtt.client as mqtt
 
+set_load_source_solar = "22f20001000a05040506139a00016d25"
+set_load_source_sbu = "22f50001000a05040506139a00022d24"
+set_load_source_utility = "22ef0001000a05040506139a0000ace5"
+
 ESS_HOST = "8.218.198.113"  # IP of ess.eybond.com
 ESS_PORT = 502
 
@@ -14,10 +18,48 @@ MQTT_BROKER = "localhost"  # replace with your broker
 MQTT_PORT = 1883
 MQTT_TOPIC = "inverter/data"
 
+def on_message(client, userdata, msg):
+    message = msg.payload.decode().lower()
+
+    print(f"Received message on topic {msg.topic}: {message}")
+    
+
+    inverter_sock = userdata.get("inverter_sock")
+    if(inverter_sock):
+        if(msg.topic.endswith("loadsource")):
+            if("solar" in message):
+                print("sending reqeust for solar")
+                try:
+                    request = bytes.fromhex(set_load_source_solar)
+                    inverter_sock.sendall(request)
+                    time.sleep(1)
+                except Exception as e:
+                    print(f"Error while sending command request: {e}")
+
+            elif("sbu" in message):
+                print("sending reqeust for sbu")
+                try:
+                    request = bytes.fromhex(set_load_source_sbu)
+                    inverter_sock.sendall(request)
+                    time.sleep(1)
+                except Exception as e:
+                    print(f"Error while sending command request: {e}")
+                    
+            elif("utility" in message):
+                print("sending reqeust for utility")
+                try:
+                    request = bytes.fromhex(set_load_source_utility)
+                    inverter_sock.sendall(request)
+                    time.sleep(1)
+                except Exception as e:
+                    print(f"Error while sending command request: {e}")
+
 
 # --- MQTT client setup ---
-mqtt_client = mqtt.Client()
+mqtt_client = mqtt.Client(userdata = {"inverter_sock": None})
+mqtt_client.on_message = on_message
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
+mqtt_client.subscribe("inverter/command/#")
 mqtt_client.loop_start()  # start background thread
 
 
@@ -36,7 +78,6 @@ def forward(src, dst, name, stop_event):
             print(f"{name} error: {e}")
             break
     stop_event.set()  # Signal all other threads to stop
-
 
 
 def periodic_inverter_requests(inverter_sock, stop_event):
@@ -151,6 +192,7 @@ def main():
             print(f"Waiting for inverter on port {LOCAL_PORT}...")
 
             inverter_sock, addr = server.accept()
+            mqtt_client._userdata["inverter_sock"] = inverter_sock
             print("Inverter connected:", addr)
 
             stop_event = threading.Event()
